@@ -15,9 +15,8 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     
-    // Основной API
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    // Явное подключение модуля рендера (без него не видит WorldRenderEvents)
+    // Именно этот модуль отвечает за рендер в мире
     modImplementation "net.fabricmc.fabric-api:fabric-rendering-v1:${project.fabric_version}"
 }
 
