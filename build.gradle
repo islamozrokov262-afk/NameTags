@@ -17,7 +17,7 @@ dependencies {
     
     // Основной API
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    // ДОБАВИТЬ ЭТО: Без этого модуля не работает рендер в мире
+    // Явное подключение модуля рендера (без него не видит WorldRenderEvents)
     modImplementation "net.fabricmc.fabric-api:fabric-rendering-v1:${project.fabric_version}"
 }
 
