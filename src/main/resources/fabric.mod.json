@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "nametags-esp",
+  "version": "1.0.0",
+  "name": "Nametags ESP",
+  "description": "Shows player enchantments.",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["ru.nametags.NametagsMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.6",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
