@@ -1,6 +1,6 @@
 package ru.nametags;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext; // НОВЫЙ ПУТЬ
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -30,7 +30,6 @@ public class NametagsRenderer {
 
         Vec3d cameraPos = context.camera().getPos();
         TextRenderer textRenderer = mc.textRenderer;
-        // В 1.21.11 метод называется tickDelta()
         float tickDelta = context.tickDelta();
         VertexConsumerProvider vertexConsumers = context.consumers();
         if (vertexConsumers == null) return;
@@ -41,10 +40,8 @@ public class NametagsRenderer {
             MutableText enchantText = getEnchantText(player);
             if (enchantText == null) continue;
 
-            // Позиция над головой (добавляем 0.5 блока вверх)
             Vec3d pos = player.getLerpedPos(tickDelta).add(0, player.getHeight() + 0.5, 0);
 
-            // Переводим 3D в 2D
             Vector4f screenPos = new Vector4f(
                     (float) (pos.x - cameraPos.x),
                     (float) (pos.y - cameraPos.y),
@@ -59,14 +56,12 @@ public class NametagsRenderer {
                 float y = screenPos.y / screenPos.w;
                 float z = screenPos.z / screenPos.w;
 
-                // Если игрок на экране
                 if (x >= -1 && x <= 1 && y >= -1 && y <= 1 && z >= 0 && z <= 1) {
                     int screenX = (int) ((x + 1.0f) / 2.0f * mc.getWindow().getScaledWidth());
                     int screenY = (int) ((1.0f - y) / 2.0f * mc.getWindow().getScaledHeight());
 
                     matrices.push();
                     matrices.translate(screenX, screenY, 0);
-                    // Масштаб текста (если будет маленьким/большим, меняй -0.025f)
                     matrices.scale(-0.025f, -0.025f, 0.025f);
 
                     textRenderer.draw(
@@ -74,10 +69,10 @@ public class NametagsRenderer {
                             -textRenderer.getWidth(enchantText) / 2.0f,
                             0,
                             0xFFFFFF,
-                            true, // Тень
+                            true,
                             matrices.peek().getPositionMatrix(),
                             vertexConsumers,
-                            TextRenderer.TextLayerType.SEE_THROUGH, // Видно сквозь стены
+                            TextRenderer.TextLayerType.SEE_THROUGH,
                             0,
                             15728880
                     );
@@ -91,10 +86,9 @@ public class NametagsRenderer {
     private static MutableText getEnchantText(PlayerEntity player) {
         MutableText text = Text.literal("");
 
-        // Меч в руке
         addEnchants(text, player.getMainHandStack());
 
-        // Броня (Шлем, Нагрудник, Штаны, Ботинки)
+        // В 1.21.11 getArmorItems() удален, перебираем слоты вручную
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             addEnchants(text, player.getEquippedStack(slot));
         }
@@ -107,14 +101,11 @@ public class NametagsRenderer {
 
         var enchantments = net.minecraft.enchantment.EnchantmentHelper.getEnchantments(stack);
         for (Map.Entry<RegistryEntry<Enchantment>, Integer> entry : enchantments.getEnchantmentEntries()) {
-            // Получаем название чара
             String name = entry.getKey().value().description().getString();
-            // Сокращаем (например, "Острота" -> "Остр")
             if (name.length() > 4) name = name.substring(0, 4);
 
             int level = entry.getValue();
 
-            // Цвета для уровней
             Formatting color = Formatting.WHITE;
             if (level >= 5) color = Formatting.RED;
             else if (level == 4) color = Formatting.LIGHT_PURPLE;
