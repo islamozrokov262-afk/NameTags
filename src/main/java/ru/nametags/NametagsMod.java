@@ -11,8 +11,8 @@ public class NametagsMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // В 1.21.11 используем LevelRenderEvents.END_MAIN
-        LevelRenderEvents.END_MAIN.register(NametagsRenderer::render);
+        // В 1.21.11 используем LevelRenderEvents. AFTER_TRANSLUCENT_TERRAIN рендерит поверх воды/стекла
+        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(NametagsRenderer::render);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("nametags")
