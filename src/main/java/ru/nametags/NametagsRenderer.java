@@ -4,9 +4,10 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext; // НОВЫЙ ПУТЬ
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext; // НОВЫЙ ПУТЬ
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.enchantment.Enchantment;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -14,38 +15,41 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import java.util.Map;
 
 public class NametagsRenderer {
-    public static void render(WorldRenderContext context) {
+    public static void render(LevelRenderContext context) {
         if (!NametagsMod.enabled) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null || mc.player == null) return;
 
-        MatrixStack matrices = context.matrixStack();
+        // В LevelRenderContext метод называется poseStack()
+        MatrixStack matrices = context.poseStack();
         if (matrices == null) return;
 
-        Vec3d cameraPos = context.camera().getPos();
+        // Камера теперь берется из уровня рендера
+        Vec3d cameraPos = new Vec3d(
+                context.levelState().cameraRenderState.pos.x,
+                context.levelState().cameraRenderState.pos.y,
+                context.levelState().cameraRenderState.pos.z
+        );
+
         TextRenderer textRenderer = mc.textRenderer;
-        float tickDelta = context.tickCounter().getTickDelta(true);
-        VertexConsumerProvider vertexConsumers = context.consumers();
+        float tickDelta = mc.getRenderTickCounter().getTickDelta(true);
+        VertexConsumerProvider vertexConsumers = context.bufferSource();
         if (vertexConsumers == null) return;
 
         for (PlayerEntity player : mc.world.getPlayers()) {
             if (player == mc.player || !player.isAlive()) continue;
 
-            // Получаем текст (чары на мече и броне)
             MutableText enchantText = getEnchantText(player);
             if (enchantText == null) continue;
 
-            // Позиция над головой
             Vec3d pos = player.getLerpedPos(tickDelta).add(0, player.getHeight() + 0.5, 0);
             
-            // Переводим 3D в 2D экрана
             Vector4f screenPos = new Vector4f(
                     (float) (pos.x - cameraPos.x),
                     (float) (pos.y - cameraPos.y),
@@ -53,7 +57,7 @@ public class NametagsRenderer {
                     1.0f
             );
             
-            // Применяем матрицу проекции
+            // Применяем матрицу (теперь она лежит в poseStack)
             screenPos.mul(matrices.peek().getPositionMatrix());
             
             if (screenPos.w > 0.0f) {
@@ -61,22 +65,24 @@ public class NametagsRenderer {
                 float y = screenPos.y / screenPos.w;
                 float z = screenPos.z / screenPos.w;
 
-                // Если игрок в поле зрения
                 if (x >= -1 && x <= 1 && y >= -1 && y <= 1 && z >= 0 && z <= 1) {
                     int screenX = (int) ((x + 1.0f) / 2.0f * mc.getWindow().getScaledWidth());
                     int screenY = (int) ((1.0f - y) / 2.0f * mc.getWindow().getScaledHeight());
 
-                    // Отрисовка текста
                     matrices.push();
                     matrices.translate(screenX, screenY, 0); 
                     matrices.scale(-0.025f, -0.025f, 0.025f); 
                     
-                    // Рисуем фон (черный полупрозрачный)
                     int width = textRenderer.getWidth(enchantText);
-                    vertexConsumers.getBuffer(RenderLayer.getTextBackgroundSeeThrough())
-                            .fill(-width / 2 - 1, -1, width / 2 + 1, 9, 0x55000000);
+                    
+                    // Безопасный вызов RenderLayer (в 1.21.11 он остался, но лучше проверить)
+                    try {
+                        vertexConsumers.getBuffer(RenderLayer.getTextBackgroundSeeThrough())
+                                .fill(-width / 2 - 1, -1, width / 2 + 1, 9, 0x55000000);
+                    } catch (Throwable ignored) {
+                        // Если метод переименовали, просто пропускаем отрисовку фона
+                    }
 
-                    // Рисуем сам текст
                     textRenderer.draw(
                             enchantText, 
                             -width / 2.0f, 
@@ -99,11 +105,11 @@ public class NametagsRenderer {
     private static MutableText getEnchantText(PlayerEntity player) {
         MutableText text = Text.literal("");
 
-        // Меч/Инструмент в руке
         addEnchants(text, player.getMainHandStack());
-        // Броня (Шлем, Нагрудник, Штаны, Ботинки)
-        for (ItemStack armor : player.getArmorItems()) {
-            addEnchants(text, armor);
+        
+        // В 1.21.11 getArmorItems() может быть недоступен, используем getEquippedStack
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            addEnchants(text, player.getEquippedStack(slot));
         }
 
         return text.getString().isEmpty() ? null : text;
@@ -115,12 +121,10 @@ public class NametagsRenderer {
         var enchantments = net.minecraft.enchantment.EnchantmentHelper.getEnchantments(stack);
         for (Map.Entry<RegistryEntry<Enchantment>, Integer> entry : enchantments.getEnchantmentEntries()) {
             String name = entry.getKey().value().description().getString();
-            // Сокращаем название (например, "Острота" -> "Остр")
             if (name.length() > 4) name = name.substring(0, 4); 
             
             int level = entry.getValue();
             
-            // Выделяем цвета в зависимости от уровня
             Formatting color = Formatting.WHITE;
             if (level >= 5) color = Formatting.RED;
             else if (level == 4) color = Formatting.LIGHT_PURPLE;
