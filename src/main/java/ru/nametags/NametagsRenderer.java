@@ -1,6 +1,6 @@
 package ru.nametags;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext; // НОВЫЙ ПУТЬ
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -19,19 +19,27 @@ import org.joml.Vector4f;
 import java.util.Map;
 
 public class NametagsRenderer {
-    public static void render(WorldRenderContext context) {
+    public static void render(LevelRenderContext context) {
         if (!NametagsMod.enabled) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null || mc.player == null) return;
 
-        MatrixStack matrices = context.matrixStack();
+        // В LevelRenderContext метод называется poseStack()
+        MatrixStack matrices = context.poseStack();
         if (matrices == null) return;
 
-        Vec3d cameraPos = context.camera().getPos();
+        // Камера теперь берется из уровня рендера
+        Vec3d cameraPos = new Vec3d(
+                context.levelState().cameraRenderState.pos.x,
+                context.levelState().cameraRenderState.pos.y,
+                context.levelState().cameraRenderState.pos.z
+        );
+
         TextRenderer textRenderer = mc.textRenderer;
-        float tickDelta = context.tickDelta();
-        VertexConsumerProvider vertexConsumers = context.consumers();
+        float tickDelta = mc.getRenderTickCounter().getGameTimeDeltaPartialTick(true);
+        // В LevelRenderContext метод называется bufferSource()
+        VertexConsumerProvider vertexConsumers = context.bufferSource();
         if (vertexConsumers == null) return;
 
         for (PlayerEntity player : mc.world.getPlayers()) {
@@ -88,7 +96,6 @@ public class NametagsRenderer {
 
         addEnchants(text, player.getMainHandStack());
 
-        // В 1.21.11 getArmorItems() удален, перебираем слоты вручную
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             addEnchants(text, player.getEquippedStack(slot));
         }
