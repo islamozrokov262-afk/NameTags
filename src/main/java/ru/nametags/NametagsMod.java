@@ -3,7 +3,7 @@ package ru.nametags;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents; // НОВЫЙ ПУТЬ
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents; // НОВЫЙ ПУТЬ
 import net.minecraft.text.Text;
 
 public class NametagsMod implements ClientModInitializer {
@@ -11,10 +11,9 @@ public class NametagsMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Регистрируем рендер
-        WorldRenderEvents.LAST.register(NametagsRenderer::render);
+        // В 1.21.11 используем LevelRenderEvents. LAST больше нет, берем END_MAIN
+        LevelRenderEvents.END_MAIN.register(NametagsRenderer::render);
 
-        // Команда /nametags
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("nametags")
                 .executes(context -> {
