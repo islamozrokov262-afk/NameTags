@@ -1,9 +1,9 @@
 package ru.nametags;
 
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext; // ПРАВИЛЬНЫЙ ПУТЬ
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext; // ПРАВИЛЬНЫЙ ПУТЬ
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.EquipmentSlot;
@@ -19,25 +19,20 @@ import org.joml.Vector4f;
 import java.util.Map;
 
 public class NametagsRenderer {
-    public static void render(LevelRenderContext context) {
+    public static void render(WorldRenderContext context) {
         if (!NametagsMod.enabled) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null || mc.player == null) return;
 
-        MatrixStack matrices = context.poseStack();
+        MatrixStack matrices = context.matrixStack();
         if (matrices == null) return;
 
-        Vec3d cameraPos = new Vec3d(
-                context.levelState().cameraRenderState.pos.x,
-                context.levelState().cameraRenderState.pos.y,
-                context.levelState().cameraRenderState.pos.z
-        );
-
+        Vec3d cameraPos = context.camera().getPos();
         TextRenderer textRenderer = mc.textRenderer;
-        // В 1.21.11 используем getGameTimeDeltaPartialTick
-        float tickDelta = mc.getRenderTickCounter().getGameTimeDeltaPartialTick(true);
-        VertexConsumerProvider vertexConsumers = context.bufferSource();
+        // В 1.21.11 это просто context.tickDelta()
+        float tickDelta = context.tickDelta(); 
+        VertexConsumerProvider vertexConsumers = context.consumers();
         if (vertexConsumers == null) return;
 
         for (PlayerEntity player : mc.world.getPlayers()) {
@@ -55,6 +50,7 @@ public class NametagsRenderer {
                     1.0f
             );
 
+            // Применяем матрицу
             screenPos.mul(matrices.peek().getPositionMatrix());
 
             if (screenPos.w > 0.0f) {
@@ -70,7 +66,7 @@ public class NametagsRenderer {
                     matrices.translate(screenX, screenY, 0);
                     matrices.scale(-0.025f, -0.025f, 0.025f);
 
-                    // Рисуем текст без фона (фон удален, чтобы избежать проблем с RenderLayer)
+                    // Рисуем текст (без фона, чтобы не крашило)
                     textRenderer.draw(
                             enchantText,
                             -textRenderer.getWidth(enchantText) / 2.0f,
@@ -93,8 +89,9 @@ public class NametagsRenderer {
     private static MutableText getEnchantText(PlayerEntity player) {
         MutableText text = Text.literal("");
 
+        // Меч/Инструмент в руке
         addEnchants(text, player.getMainHandStack());
-
+        
         // В 1.21.11 getArmorItems() удален, перебираем слоты вручную
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             addEnchants(text, player.getEquippedStack(slot));
@@ -109,10 +106,10 @@ public class NametagsRenderer {
         var enchantments = net.minecraft.enchantment.EnchantmentHelper.getEnchantments(stack);
         for (Map.Entry<RegistryEntry<Enchantment>, Integer> entry : enchantments.getEnchantmentEntries()) {
             String name = entry.getKey().value().description().getString();
-            if (name.length() > 4) name = name.substring(0, 4);
-
+            if (name.length() > 4) name = name.substring(0, 4); 
+            
             int level = entry.getValue();
-
+            
             Formatting color = Formatting.WHITE;
             if (level >= 5) color = Formatting.RED;
             else if (level == 4) color = Formatting.LIGHT_PURPLE;
